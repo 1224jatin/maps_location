@@ -22,6 +22,10 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
   PlaceModel? destination;
   List<LatLng> routePoints = [];
   final MapController mapController = MapController();
+  
+  bool isSearching = false;
+  bool isRouting = false;
+  List<PlaceModel> searchResults = [];
 
   @override
   Widget build(BuildContext context) {
@@ -34,39 +38,66 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
         padding: const EdgeInsets.all(15),
         child: SingleChildScrollView(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Autocomplete<PlaceModel>(
-                displayStringForOption: (PlaceModel option) => option.name,
-                optionsBuilder: (TextEditingValue textEditingValue) async {
-                  if (textEditingValue.text.isEmpty) {
-                    return const Iterable<PlaceModel>.empty();
+              // Search Input with manual Suggestions list to avoid Overlay issues
+              TextField(
+                onChanged: (value) async {
+                  if (value.length > 2) {
+                    setState(() => isSearching = true);
+                    final results = await MapServices().searchPlaces(value);
+                    setState(() {
+                      searchResults = results;
+                      isSearching = false;
+                    });
+                  } else {
+                    setState(() => searchResults = []);
                   }
-                  return await MapServices().searchPlaces(textEditingValue.text);
                 },
-                onSelected: (PlaceModel selection) {
-                  setState(() {
-                    destination = selection;
-                    mapController.move(
-                      LatLng(double.parse(selection.lat), double.parse(selection.long)),
-                      13.0,
-                    );
-                  });
-                },
-                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    onEditingComplete: onFieldSubmitted,
-                    decoration: InputDecoration(
-                      hintText: "Search Destination",
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  );
-                },
+                decoration: InputDecoration(
+                  hintText: "Search Destination",
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: isSearching 
+                    ? const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
+              
+              // Suggestions List
+              if (searchResults.isNotEmpty)
+                Card(
+                  elevation: 2,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: searchResults.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final place = searchResults[index];
+                      return ListTile(
+                        title: Text(place.name, style: const TextStyle(fontSize: 14)),
+                        onTap: () {
+                          setState(() {
+                            destination = place;
+                            searchResults = [];
+                            mapController.move(
+                              LatLng(double.parse(place.lat), double.parse(place.long)),
+                              13.0,
+                            );
+                          });
+                          FocusScope.of(context).unfocus();
+                        },
+                      );
+                    },
+                  ),
+                ),
+
               const SizedBox(height: 15),
               Container(
                 height: 350,
@@ -145,7 +176,7 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                           Expanded(
                             child: Text(
                               "Destination: ${destination?.name ?? 'Not set'}",
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -169,13 +200,19 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final pos = await LocationServices().currentLocation();
-                        final address = await MapServices().reverseGeocode(pos.latitude, pos.longitude);
-                        setState(() {
-                          currentLocation = pos;
-                          currentAddress = address;
-                          mapController.move(LatLng(pos.latitude, pos.longitude), 13.0);
-                        });
+                        try {
+                          final pos = await LocationServices().currentLocation();
+                          final address = await MapServices().reverseGeocode(pos.latitude, pos.longitude);
+                          setState(() {
+                            currentLocation = pos;
+                            currentAddress = address;
+                            mapController.move(LatLng(pos.latitude, pos.longitude), 13.0);
+                          });
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Location Error: $e")),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.my_location),
                       label: const Text("My Location"),
@@ -184,26 +221,38 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                   const SizedBox(width: 15),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () async {
+                      onPressed: isRouting ? null : () async {
                         if (currentLocation != null && destination != null) {
-                          final points = await RouteServices().getRout(
-                            LatLng(currentLocation!.latitude, currentLocation!.longitude),
-                            LatLng(double.parse(destination!.lat), double.parse(destination!.long)),
-                          );
-                          setState(() {
-                            routePoints = points;
-                            if (points.isNotEmpty) {
-                              // Optional: Fit map to show both points
-                              // mapController.fitCamera(...) 
+                          setState(() => isRouting = true);
+                          try {
+                            final points = await RouteServices().getRout(
+                              LatLng(currentLocation!.latitude, currentLocation!.longitude),
+                              LatLng(double.parse(destination!.lat), double.parse(destination!.long)),
+                            );
+                            setState(() {
+                              routePoints = points;
+                              isRouting = false;
+                            });
+                            if (points.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("No route found between these locations")),
+                              );
                             }
-                          });
+                          } catch (e) {
+                            setState(() => isRouting = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Routing Error: $e")),
+                            );
+                          }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("Please set both My Location and Destination")),
                           );
                         }
                       },
-                      icon: const Icon(Icons.alt_route),
+                      icon: isRouting 
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.alt_route),
                       label: const Text("Show Route"),
                     ),
                   ),
