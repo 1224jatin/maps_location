@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:maps_location/place_model.dart';
+import 'package:maps_location/models/place_model.dart';
 
-import 'constents.dart';
+import '../constents.dart';
 
 class MapServices {
   Future<PlaceModel?> searchPlace(String place) async {

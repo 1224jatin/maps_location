@@ -1,8 +1,16 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import 'locationFinder_screen.dart';
+import 'Screens/login_register/login_screen.dart';
+import 'Screens/map_screen/locationFinder_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+
+  Firebase.initializeApp();
+
   runApp(const MyApp());
 }
 
@@ -31,7 +39,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: LocationfinderScreen(),
+      home: LoginScreen(),
     );
   }
 }

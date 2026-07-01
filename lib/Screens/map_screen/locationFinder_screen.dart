@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:maps_location/map_services.dart';
-import 'package:maps_location/place_model.dart';
-import 'package:maps_location/route_services.dart';
+import 'package:maps_location/services/map_services.dart';
+import 'package:maps_location/models/place_model.dart';
+import 'package:maps_location/services/route_services.dart';
 
-import 'constents.dart';
-import 'location_services.dart';
+import '../../constents.dart';
+import '../../services/location_services.dart';
 
 class LocationfinderScreen extends StatefulWidget {
   const LocationfinderScreen({super.key});
