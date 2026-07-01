@@ -1,8 +1,10 @@
-class ApiUrl{
+class ApiUrl {
   static const String osmTile = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  
+  // Geocoding (Nominatim)
+  static const String nominatimSearch = "https://nominatim.openstreetmap.org/search";
+  static const String nominatimReverse = "https://nominatim.openstreetmap.org/reverse";
 
-  static const String search = "https://nominatim.openstreetmap.org/search";
-
-  static const String route = "https://router.project-osrm.org/route/v1/driving";
-
+  // Routing (OSRM - No Key Required)
+  static const String osrmRoute = "https://router.project-osrm.org/route/v1/driving";
 }

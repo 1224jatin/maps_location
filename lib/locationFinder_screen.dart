@@ -18,9 +18,9 @@ class LocationfinderScreen extends StatefulWidget {
 
 class _LocationfinderScreen extends State<LocationfinderScreen> {
   Position? currentLocation;
+  String currentAddress = "Not set";
   PlaceModel? destination;
   List<LatLng> routePoints = [];
-  final TextEditingController searchController = TextEditingController();
   final MapController mapController = MapController();
 
   @override
@@ -35,32 +35,37 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  hintText: "Search Location",
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    onPressed: () async {
-                      if (searchController.text.isNotEmpty) {
-                        final place = await MapServices().searchPlace(searchController.text);
-                        if (place != null) {
-                          setState(() {
-                            destination = place;
-                            mapController.move(
-                              LatLng(double.parse(place.lat), double.parse(place.long)),
-                              13.0,
-                            );
-                          });
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.send),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+              Autocomplete<PlaceModel>(
+                displayStringForOption: (PlaceModel option) => option.name,
+                optionsBuilder: (TextEditingValue textEditingValue) async {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<PlaceModel>.empty();
+                  }
+                  return await MapServices().searchPlaces(textEditingValue.text);
+                },
+                onSelected: (PlaceModel selection) {
+                  setState(() {
+                    destination = selection;
+                    mapController.move(
+                      LatLng(double.parse(selection.lat), double.parse(selection.long)),
+                      13.0,
+                    );
+                  });
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onEditingComplete: onFieldSubmitted,
+                    decoration: InputDecoration(
+                      hintText: "Search Destination",
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 15),
               Container(
@@ -117,28 +122,41 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(15),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.location_on),
+                          const Icon(Icons.my_location, color: Colors.blue),
                           const SizedBox(width: 10),
-                          Text("Latitude : ${currentLocation?.latitude ?? destination?.lat ?? '28.6139'}"),
+                          Expanded(
+                            child: Text(
+                              "Current: $currentAddress",
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined),
+                          const Icon(Icons.location_on, color: Colors.red),
                           const SizedBox(width: 10),
-                          Text("Longitude : ${currentLocation?.longitude ?? destination?.long ?? '77.2090'}"),
+                          Expanded(
+                            child: Text(
+                              "Destination: ${destination?.name ?? 'Not set'}",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.route),
+                          const Icon(Icons.route, color: Colors.green),
                           const SizedBox(width: 10),
-                          Text("Route: ${routePoints.isNotEmpty ? 'Calculated' : 'Not Set'}"),
+                          Text("Route: ${routePoints.isNotEmpty ? 'Points Loaded' : 'Not Calculated'}"),
                         ],
                       ),
                     ],
@@ -152,8 +170,10 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         final pos = await LocationServices().currentLocation();
+                        final address = await MapServices().reverseGeocode(pos.latitude, pos.longitude);
                         setState(() {
                           currentLocation = pos;
+                          currentAddress = address;
                           mapController.move(LatLng(pos.latitude, pos.longitude), 13.0);
                         });
                       },
@@ -170,9 +190,12 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                             LatLng(currentLocation!.latitude, currentLocation!.longitude),
                             LatLng(double.parse(destination!.lat), double.parse(destination!.long)),
                           );
-                          print(points.toString());
                           setState(() {
                             routePoints = points;
+                            if (points.isNotEmpty) {
+                              // Optional: Fit map to show both points
+                              // mapController.fitCamera(...) 
+                            }
                           });
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
