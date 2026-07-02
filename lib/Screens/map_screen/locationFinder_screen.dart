@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -22,10 +23,37 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
   PlaceModel? destination;
   List<LatLng> routePoints = [];
   final MapController mapController = MapController();
+  final TextEditingController searchController = TextEditingController();
   
   bool isSearching = false;
   bool isRouting = false;
   List<PlaceModel> searchResults = [];
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query.length > 2) {
+        setState(() => isSearching = true);
+        final results = await MapServices().searchPlaces(query);
+        if (mounted) {
+          setState(() {
+            searchResults = results;
+            isSearching = false;
+          });
+        }
+      } else {
+        setState(() => searchResults = []);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,20 +68,10 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. Manual Suggestion Search (More reliable than Autocomplete overlay)
+              // 1. Manual Suggestion Search
               TextField(
-                onChanged: (value) async {
-                  if (value.length > 2) {
-                    setState(() => isSearching = true);
-                    final results = await MapServices().searchPlaces(value);
-                    setState(() {
-                      searchResults = results;
-                      isSearching = false;
-                    });
-                  } else {
-                    setState(() => searchResults = []);
-                  }
-                },
+                controller: searchController,
+                onChanged: _onSearchChanged,
                 decoration: InputDecoration(
                   hintText: "Search Destination",
                   prefixIcon: const Icon(Icons.search),
@@ -66,14 +84,23 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    : null,
+                    : (searchController.text.isNotEmpty ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          searchController.clear();
+                          setState(() {
+                            searchResults = [];
+                            destination = null;
+                          });
+                        },
+                      ) : null),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
               
-              // Suggestions List displayed directly in the column
+              // Suggestions List
               if (searchResults.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4.0),
@@ -92,6 +119,7 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                           onTap: () {
                             setState(() {
                               destination = place;
+                              searchController.text = place.name;
                               searchResults = [];
                               mapController.move(
                                 LatLng(double.parse(place.lat), double.parse(place.long)),
