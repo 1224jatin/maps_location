@@ -40,7 +40,7 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Search Input with manual Suggestions list to avoid Overlay issues
+              // 1. Manual Suggestion Search (More reliable than Autocomplete overlay)
               TextField(
                 onChanged: (value) async {
                   if (value.length > 2) {
@@ -59,8 +59,12 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: isSearching 
                     ? const Padding(
-                        padding: EdgeInsets.all(10),
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       )
                     : null,
                   border: OutlineInputBorder(
@@ -69,36 +73,42 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                 ),
               ),
               
-              // Suggestions List
+              // Suggestions List displayed directly in the column
               if (searchResults.isNotEmpty)
-                Card(
-                  elevation: 2,
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: searchResults.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final place = searchResults[index];
-                      return ListTile(
-                        title: Text(place.name, style: const TextStyle(fontSize: 14)),
-                        onTap: () {
-                          setState(() {
-                            destination = place;
-                            searchResults = [];
-                            mapController.move(
-                              LatLng(double.parse(place.lat), double.parse(place.long)),
-                              13.0,
-                            );
-                          });
-                          FocusScope.of(context).unfocus();
-                        },
-                      );
-                    },
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: searchResults.length,
+                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final place = searchResults[index];
+                        return ListTile(
+                          title: Text(place.name, style: const TextStyle(fontSize: 14)),
+                          onTap: () {
+                            setState(() {
+                              destination = place;
+                              searchResults = [];
+                              mapController.move(
+                                LatLng(double.parse(place.lat), double.parse(place.long)),
+                                13.0,
+                              );
+                            });
+                            FocusScope.of(context).unfocus();
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
 
               const SizedBox(height: 15),
+              
+              // Map Container
               Container(
                 height: 350,
                 clipBehavior: Clip.hardEdge,
@@ -148,7 +158,10 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                   ],
                 ),
               ),
+              
               const SizedBox(height: 15),
+              
+              // Info Card
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(15),
@@ -194,7 +207,10 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                   ),
                 ),
               ),
+              
               const SizedBox(height: 15),
+              
+              // Action Buttons
               Row(
                 children: [
                   Expanded(
@@ -251,7 +267,11 @@ class _LocationfinderScreen extends State<LocationfinderScreen> {
                         }
                       },
                       icon: isRouting 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                            width: 20, 
+                            height: 20, 
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
                         : const Icon(Icons.alt_route),
                       label: const Text("Show Route"),
                     ),
